@@ -35,7 +35,6 @@ Module Convert
             Exit Sub
         End If
 
-        Dim sql As String = My.Computer.FileSystem.ReadAllText(inPath)
         Dim outPath = args(2) + inPath.Substring(InStrRev(inPath, "\") - 1)
         outPath = outPath.Replace(".sql", "\query.sql")
 
@@ -50,29 +49,20 @@ Module Convert
         Dim rxJoin As New RegularExpressions.Regex("JOIN \[([^\]]*)\].")
         Dim schemaName As String = String.Empty
         Dim tmpTable As String = String.Empty
-
+        Dim isBegin As Boolean = False
         Do
             sqlLine = reader.ReadLine
-
             If sqlLine Is Nothing Then Exit Do
+            If sqlLine.Contains("Begin Query") Then
+                writer.WriteLine($"/* Query converted from {inPath} on {Now.ToString} */")
+                writer.WriteLine()
+                isBegin = True
+                Continue Do
+            End If
+            If Not isBegin Then Continue Do
+
             If sqlLine.Contains("End Query") Then Exit Do
             If sqlLine.Trim.StartsWith("--") Then Continue Do
-
-            If sqlLine.Contains("External Parameters") Then
-                writer.WriteLine(sqlLine)
-                sqlLine = reader.ReadLine()
-                'writer.WriteLine(sqlLine.Insert(0, "--"))
-                sqlLine = reader.ReadLine()
-                'writer.WriteLine(sqlLine.Insert(0, "--"))
-
-                writer.WriteLine("    DROP TABLE IF EXISTS #tmp_variables;")
-                writer.WriteLine("    CREATE TEMP TABLE #tmp_variables AS SELECT")
-                writer.WriteLine("        (SELECT @From_Utc)::DATETIME AS utc_start,")
-                writer.WriteLine("        (SELECT @To_Utc)::DATETIME AS utc_end;")
-                writer.WriteLine()
-
-                sqlLine = reader.ReadLine
-            End If
 
             sqlPos = InStr(sqlLine, "'tempdb..")
             If sqlPos > 0 Then
